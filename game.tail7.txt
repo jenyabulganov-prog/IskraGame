@@ -1,0 +1,21 @@
+:1.85,false,false,true);ctx.restore();if(selected){ctx.strokeStyle='#fff4a8';ctx.lineWidth=1.4;ctx.strokeRect(xs[i]-26,103,52,66)}}
+  }
+  function drawMapScene(){
+    drawBackground('meadow',0);ctx.save();ctx.globalAlpha=.88;rr(18,58,220,116,16,linear(18,58,238,174,'#e9d99b','#c0a364','#8c6e49'),'#6a5036',1);ctx.globalAlpha=1;
+    // river
+    ctx.beginPath();ctx.moveTo(30,150);ctx.bezierCurveTo(80,128,88,162,130,140);ctx.bezierCurveTo(165,120,190,145,226,118);ctx.strokeStyle='#69bfe3';ctx.lineWidth=10;ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=2;ctx.stroke();
+    // path
+    const pts=[[48,132],[93,103],[150,126],[205,88]];ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.strokeStyle='#8f673e';ctx.lineWidth=6;ctx.stroke();ctx.setLineDash([2,3]);ctx.strokeStyle='#e9c781';ctx.lineWidth=2;ctx.stroke();ctx.setLineDash([]);
+    pts.forEach((p,i)=>{const unlocked=i<=unlockedLevel,selected=i===selectedLevel;ell(p[0],p[1],selected?11:9,selected?11:9,unlocked?linear(p[0],p[1]-10,p[0],p[1]+10,'#fff5a6',i===3?'#d95347':'#f48a31'):'#777','#51392b',1);ctx.fillStyle=unlocked?'#1d2d37':'#444';ctx.font='900 8px system-ui';ctx.textAlign='center';ctx.fillText(String(i+1),p[0],p[1]+2.8);if(selected)ell(p[0],p[1],14,14,'rgba(255,255,255,.08)','#fff',1.2)});ctx.textAlign='left';
+    drawHeroModel(pts[selectedLevel][0],pts[selectedLevel][1]-20,HEROES[heroIndex],1,1.15,false,false,true);ctx.restore();
+  }
+
+  function updateHud(){
+    if(!cfg)return;ui.level.textContent=`${currentLevel+1} · ${cfg.short}`;ui.hero.textContent=HEROES[heroIndex].name;ui.lives.textContent=`❤ ${lives}`;ui.carrots.textContent=`${collected}/${totalCarrots}`;ui.score.textContent=String(score).padStart(6,'0');ui.time.textContent=String(Math.floor(levelTime)).padStart(3,'0')
+  }
+
+  // ---------- Main loop ----------
+  setState('menu');sdk.init();
+  function frame(now){const dt=Math.min(.033,(now-last)/1000);last=now;update(dt);draw();requestAnimationFrame(frame)}
+  requestAnimationFrame(frame);
+})();
