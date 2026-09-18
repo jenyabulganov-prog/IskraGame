@@ -1,0 +1,139 @@
+0],[640,151]],
+      stars:[[370,58]],
+      enemies:[], checkpoints:[], movers:[], boss:true,
+    },
+  ];
+
+  function loadProgress(){
+    try { return Math.max(0, Math.min(3, Number(localStorage.getItem('jump_skip_progress') || 0))); }
+    catch { return 0; }
+  }
+  function saveProgress(){
+    try { localStorage.setItem('jump_skip_progress', String(unlockedLevel)); } catch {}
+  }
+
+  // ---------- Yandex Games SDK ----------
+  const sdk = (() => {
+    let ysdk = null;
+    let gameplayActive = false;
+    async function init(){
+      try{
+        if (window.YaGames?.init) {
+          ysdk = await window.YaGames.init();
+          await ysdk.features?.LoadingAPI?.ready?.();
+        }
+      }catch(err){ console.info('Yandex SDK недоступен в локальном запуске.', err?.message || err); }
+    }
+    function gameplay(start){
+      if(!ysdk || gameplayActive===start) return;
+      gameplayActive=start;
+      try{
+        if(start) ysdk.features?.GameplayAPI?.start?.();
+        else ysdk.features?.GameplayAPI?.stop?.();
+      }catch{}
+    }
+    function fullscreen(done){
+      if(!ysdk?.adv?.showFullscreenAdv){ done?.(); return; }
+      gameplay(false); audio.externalPause(true);
+      try{
+        ysdk.adv.showFullscreenAdv({ callbacks:{
+          onClose:()=>{audio.externalPause(false);done?.();},
+          onError:()=>{audio.externalPause(false);done?.();}
+        }});
+      }catch{ audio.externalPause(false);done?.(); }
+    }
+    return {init,gameplay,fullscreen};
+  })();
+
+  // ---------- Audio ----------
+  const audio = (() => {
+    let ac=null, musicOn=true, externallyPaused=false, nextBeat=0, beat=0;
+    const melodies={
+      meadow:[659,0,784,0,880,784,659,0,587,0,659,0,523,587,659,0],
+      forest:[523,0,587,0,659,0,587,0,466,0,523,0,440,466,523,0],
+      cliffs:[784,0,880,988,0,880,784,659,0,698,784,0,659,0,587,0],
+      boss:[196,196,0,233,196,0,174,174,0,196,233,0,261,233,196,0]
+    };
+    const bass={meadow:[131,147,165,147],forest:[98,117,131,117],cliffs:[147,165,196,165],boss:[65,65,73,58]};
+    function ensure(){
+      if(!ac) ac=new (window.AudioContext||window.webkitAudioContext)();
+      if(ac.state==='suspended' && !externallyPaused) ac.resume();
+      if(!nextBeat) nextBeat=ac.currentTime+.05;
+    }
+    function tone(freq,dur=.06,type='square',vol=.025,when=null){
+      if(!ac||!freq||externallyPaused) return;
+      const t=when??ac.currentTime,o=ac.createOscillator(),g=ac.createGain();
+      o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+      o.connect(g).connect(ac.destination);o.start(t);o.stop(t+dur+.02);
+    }
+    function sfx(name){
+      ensure(); const t=ac.currentTime;
+      if(name==='jump'){tone(430,.045,'square',.032,t);tone(620,.07,'square',.022,t+.04)}
+      if(name==='double'){tone(620,.04,'square',.028,t);tone(850,.065,'square',.022,t+.035)}
+      if(name==='collect'){tone(900,.04,'square',.028,t);tone(1180,.07,'square',.022,t+.04)}
+      if(name==='star'){[988,1319,1568].forEach((f,i)=>tone(f,.07,'square',.025,t+i*.05))}
+      if(name==='stomp'){tone(185,.055,'square',.04,t);tone(115,.055,'square',.03,t+.035)}
+      if(name==='hit'){tone(170,.12,'sawtooth',.038,t);tone(105,.16,'square',.024,t+.06)}
+      if(name==='checkpoint'){[523,659,784,1047].forEach((f,i)=>tone(f,.075,'square',.024,t+i*.055))}
+      if(name==='win'){[523,659,784,1047,1319].forEach((f,i)=>tone(f,.11,'square',.028,t+i*.08))}
+      if(name==='bossHit'){tone(95,.11,'sawtooth',.05,t);tone(70,.12,'square',.03,t+.05)}
+    }
+    function tick(){
+      if(!ac||!musicOn||externallyPaused||state!=='play') return;
+      const theme=cfg?.theme||'meadow',mel=melodies[theme]||melodies.meadow,b=bass[theme]||bass.meadow;
+      while(nextBeat<ac.currentTime+.12){
+        const f=mel[beat%mel.length]; if(f) tone(f,.09,'square',.010,nextBeat);
+        if(beat%2===0) tone(b[Math.floor(beat/2)%b.length],.13,'triangle',.010,nextBeat);
+        if(beat%4===0) tone(theme==='boss'?58:72,.035,'square',.008,nextBeat);
+        nextBeat+=theme==='boss'?.115:.13; beat++;
+      }
+    }
+    function toggle(){ensure();musicOn=!musicOn;nextBeat=ac.currentTime+.05;toast(musicOn?'МУЗЫКА ВКЛ.':'МУЗЫКА ВЫКЛ.','#fff')}
+    function externalPause(flag){externallyPaused=flag;if(ac){if(flag&&ac.state==='running')ac.suspend();if(!flag&&ac.state==='suspended')ac.resume();nextBeat=ac.currentTime+.08}}
+    return {ensure,sfx,tick,toggle,externalPause};
+  })();
+
+  // ---------- Input ----------
+  addEventListener('keydown', e => {
+    const k=e.key.toLowerCase();
+    if(['arrowleft','arrowright','arrowup',' ','a','d','w','z','x','enter','escape','p','m','r'].includes(k)) e.preventDefault();
+    if(!keys.has(k)){
+      if(k==='enter'||k===' '||k==='z'||k==='x') confirmAction();
+      else if(k==='arrowleft'||k==='a') navigate(-1);
+      else if(k==='arrowright'||k==='d') navigate(1);
+      else if(k==='p'||k==='escape') { if(state==='play'||state==='paused') togglePause(); }
+      else if(k==='m') audio.toggle();
+      else if(k==='r' && state==='play') loadLevel(currentLevel,true);
+    }
+    keys.add(k);
+  });
+  addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+  addEventListener('blur',()=>{ if(state==='play') setState('paused'); });
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden&&state==='play') setState('paused'); });
+  ui.action.addEventListener('click',()=>{audio.ensure();confirmAction();});
+  bindControl('left','left',-1);bindControl('right','right',1);bindControl('jump','jump',0);
+
+  function bindControl(id,action,navDir){
+    const el=document.getElementById(id);
+    const on=ev=>{ev.preventDefault();audio.ensure();el.classList.add('active');if(state==='play')touch[action]=true;else if(action==='jump')confirmAction();else navigate(navDir)};
+    const off=ev=>{ev.preventDefault();touch[action]=false;el.classList.remove('active')};
+    ['pointerdown','touchstart'].forEach(t=>el.addEventListener(t,on,{passive:false}));
+    ['pointerup','pointercancel','pointerleave','touchend','touchcancel'].forEach(t=>el.addEventListener(t,off,{passive:false}));
+  }
+  function leftHeld(){return keys.has('arrowleft')||keys.has('a')||touch.left}
+  function rightHeld(){return keys.has('arrowright')||keys.has('d')||touch.right}
+  function jumpHeld(){return keys.has('arrowup')||keys.has('w')||keys.has(' ')||keys.has('z')||keys.has('x')||touch.jump}
+
+  function navigate(dir){
+    if(state==='character'){heroIndex=(heroIndex+dir+HEROES.length)%HEROES.length;refreshScreen()}
+    else if(state==='map'){
+      selectedLevel=Math.max(0,Math.min(unlockedLevel,selectedLevel+dir));refreshScreen();audio.sfx('collect');
+    }
+  }
+  function confirmAction(){
+    audio.ensure();
+    if(state==='menu') setState('character');
+    else if(state==='character'){selectedLevel=Math.min(selectedLevel,unlockedLevel);setState('map')}
+    else if(state==='map') loadLevel(selectedLevel,true);
+    else if(state==='paused') setState('play');
+   
