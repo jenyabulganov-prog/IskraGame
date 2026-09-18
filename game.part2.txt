@@ -1,0 +1,101 @@
+  else if(state==='levelclear') sdk.fullscreen(()=>setState('map'));
+    else if(state==='gameover') loadLevel(currentLevel,true);
+    else if(state==='bosswin'){selectedLevel=0;setState('map')}
+  }
+  function togglePause(){setState(state==='play'?'paused':'play')}
+
+  function setState(next){
+    state=next;
+    const playing=state==='play';
+    sdk.gameplay(playing);
+    ui.hud.classList.toggle('hidden',!playing);
+    ui.panel.classList.toggle('hidden',playing);
+    refreshScreen();
+  }
+
+  function refreshScreen(){
+    if(state==='play') return;
+    ui.panel.classList.remove('hidden');
+    const hero=HEROES[heroIndex];
+    if(state==='menu'){
+      ui.eyebrow.textContent='ОРИГИНАЛЬНЫЙ РЕТРО-ПЛАТФОРМЕР';ui.title.textContent='ПРЫГ-СКОК';ui.subtitle.textContent='Большое приключение';
+      ui.copy.innerHTML='Три героя, три больших уровня и битва с боссом.<br>Объёмная графика, эффекты и музыка.';ui.action.textContent='ИГРАТЬ';ui.hint.textContent='ENTER / ПРОБЕЛ';
+    }else if(state==='character'){
+      ui.eyebrow.textContent='ВЫБОР ГЕРОЯ';ui.title.textContent=hero.name;ui.subtitle.textContent=`${hero.species} · ${hero.ability}`;
+      ui.copy.innerHTML='← → выбери героя. У каждого свои скорость и прыжок.';ui.action.textContent='ВЫБРАТЬ';ui.hint.textContent='← → ВЫБОР · ENTER / A ПОДТВЕРДИТЬ';
+    }else if(state==='map'){
+      const l=LEVELS[selectedLevel];
+      ui.eyebrow.textContent=`КАРТА МИРА · ДОСТУПНО ${unlockedLevel+1}/4`;ui.title.textContent=`${selectedLevel+1}. ${l.short}`;ui.subtitle.textContent=l.name;
+      ui.copy.innerHTML=selectedLevel===3?'Финальная арена. Победи Крота-механика.':'Найди звёзды, собирай морковки и доберись до финиша.';ui.action.textContent='НАЧАТЬ УРОВЕНЬ';ui.hint.textContent='← → УРОВЕНЬ · ENTER / A СТАРТ';
+    }else if(state==='paused'){
+      ui.eyebrow.textContent='ИГРА ОСТАНОВЛЕНА';ui.title.textContent='ПАУЗА';ui.subtitle.textContent='Прогресс сохранён в текущем уровне';ui.copy.textContent='Можно продолжить с того же места.';ui.action.textContent='ПРОДОЛЖИТЬ';ui.hint.textContent='P / ESC / ENTER';
+    }else if(state==='levelclear'){
+      ui.eyebrow.textContent='УРОВЕНЬ ПРОЙДЕН';ui.title.textContent='ОТЛИЧНО!';ui.subtitle.textContent=`Счёт: ${score.toLocaleString('ru-RU')}`;ui.copy.innerHTML=`Морковки: <b>${collected}/${totalCarrots}</b> · Звёзды: <b>${starCount}/3</b><br>Следующий уровень открыт.`;ui.action.textContent='НА КАРТУ';ui.hint.textContent='ENTER / A';
+    }else if(state==='gameover'){
+      ui.eyebrow.textContent='ПОПРОБУЙ ЕЩЁ РАЗ';ui.title.textContent='ИГРА ОКОНЧЕНА';ui.subtitle.textContent=LEVELS[currentLevel].name;ui.copy.textContent='Уровень начнётся заново, выбранный герой сохранится.';ui.action.textContent='ПОВТОРИТЬ';ui.hint.textContent='ENTER / A';
+    }else if(state==='bosswin'){
+      ui.eyebrow.textContent='ФИНАЛ';ui.title.textContent='ПОБЕДА!';ui.subtitle.textContent='Крот-механик побеждён';ui.copy.innerHTML=`Финальный счёт: <b>${score.toLocaleString('ru-RU')}</b><br>Все четыре этапа завершены.`;ui.action.textContent='НА КАРТУ';ui.hint.textContent='ENTER / A';
+    }
+  }
+
+  // ---------- Level setup ----------
+  function loadLevel(index,resetScore=false){
+    currentLevel=index;selectedLevel=index;cfg=LEVELS[index];LEVEL_W=cfg.width;
+    if(resetScore){scoreAtLevelStart=score; lives=3;}
+    levelTime=0;collected=0;starCount=0;combo=0;comboTimer=0;invuln=0;cameraX=0;particles=[];popups=[];jumpLatch=false;
+    checkpointX=cfg.start[0];checkpointY=cfg.start[1];
+    const h=HEROES[heroIndex];
+    player={x:cfg.start[0],y:cfg.start[1],w:13,h:22,vx:0,vy:0,onGround:false,facing:1,anim:0,animT:0,coyote:0,jumpBuffer:0,doubleReady:h.doubleJump,squash:0};
+    platforms=[...cfg.ground.map(([a,b])=>({x:a,y:GROUND_Y,w:b-a,h:H-GROUND_Y+20,type:'ground'})),...cfg.ledges.map(([x,y,w])=>({x,y,w,h:12,type:'ledge'}))];
+    boxes=cfg.boxes.map(([x,y],i)=>({x,y,w:16,h:16,broken:false,bonus:i%4===1?'carrot':null}));
+    carrots=cfg.carrots.map(([x,y])=>({x,y,taken:false,t:Math.random()*6.28}));totalCarrots=carrots.length;
+    stars=cfg.stars.map(([x,y])=>({x,y,taken:false,t:Math.random()*6.28}));
+    enemies=cfg.enemies.map(([type,x,y,min,max],i)=>({type,x,y,min,max,dir:i%2?1:-1,phase:Math.random()*6.28,vy:0,onGround:false,jumpT:.6+Math.random(),alive:true}));
+    checkpoints=cfg.checkpoints.map(([x,y])=>({x,y,active:false}));
+    movingPlatforms=cfg.movers.map(p=>({...p,baseX:p.x,baseY:p.y}));
+    boss=cfg.boss?{x:710,y:GROUND_Y-34,w:29,h:34,vx:0,vy:0,dir:-1,onGround:true,hp:6,maxHp:6,timer:1.2,mode:'idle',flash:0,dead:false}:null;
+    setState('play');updateHud();
+  }
+
+  function solidRects(){return platforms.concat(boxes.filter(b=>!b.broken),movingPlatforms)}
+  function aabb(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+
+  // ---------- Gameplay update ----------
+  function update(dt){
+    audio.tick();
+    if(state!=='play') return;
+    levelTime+=dt;invuln=Math.max(0,invuln-dt);comboTimer-=dt;if(comboTimer<=0)combo=0;
+    updateMovingPlatforms(dt);
+    const hero=HEROES[heroIndex];
+    const wasGround=player.onGround;if(wasGround){player.coyote=.105;player.doubleReady=hero.doubleJump}else player.coyote=Math.max(0,player.coyote-dt);
+    const wantJump=jumpHeld();if(wantJump&&!jumpLatch)player.jumpBuffer=.12;else player.jumpBuffer=Math.max(0,player.jumpBuffer-dt);jumpLatch=wantJump;
+
+    const accel=player.onGround?720:hero.air;
+    if(leftHeld()){player.vx-=accel*dt;player.facing=-1}if(rightHeld()){player.vx+=accel*dt;player.facing=1}
+    if(!leftHeld()&&!rightHeld())player.vx*=Math.pow(.00055,dt);
+    player.vx=Math.max(-hero.speed,Math.min(hero.speed,player.vx));
+
+    if(player.jumpBuffer>0){
+      if(player.coyote>0){doJump(hero.jump,false)}
+      else if(hero.doubleJump&&player.doubleReady){player.doubleReady=false;doJump(hero.jump*.93,true)}
+    }
+    if(!wantJump&&player.vy<-90)player.vy+=470*dt;
+    player.vy+=545*dt;player.vy=Math.min(290,player.vy);
+
+    const oldY=player.y,impactVy=player.vy;
+    player.x+=player.vx*dt;resolveX(player);
+    player.y+=player.vy*dt;player.onGround=false;resolveY(player,oldY);
+    if(!wasGround&&player.onGround&&impactVy>100){dustBurst(player.x+player.w/2,player.y+player.h,0,9);player.squash=.09}
+    player.squash=Math.max(0,player.squash-dt);
+    player.x=Math.max(0,Math.min(LEVEL_W-player.w,player.x));
+    if(player.y>H+48)damage(true);
+
+    player.animT+=dt;if(player.animT>.095){player.animT=0;player.anim=(player.anim+1)%6}
+    updateCollectibles();updateEnemies(dt);updateCheckpoints();if(boss)updateBoss(dt);updateParticles(dt);updatePopups(dt);
+    if(!cfg.boss&&player.x>LEVEL_W-56)completeLevel();
+    const target=player.x-W*.42;cameraX+=(target-cameraX)*Math.min(1,dt*7);cameraX=Math.max(0,Math.min(LEVEL_W-W,cameraX));
+    updateHud();
+  }
+
+  function doJump(power,double){
+    dustBurst(player.x+player.w/2,player.y+player.h,-player.facing*8,double?10:6);player.vy=-power;player.onGround=false;player.coyote=0;player.jumpBuffer=0;player.squash=.055;audio.sfx(double?'do
