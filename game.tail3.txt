@@ -1,0 +1,36 @@
+,'#5fa881')}
+    for(let i=-1;i<10;i++){const x=i*34-(cam*.36)%34;ell(x+15,157,26,14,'#3f8e60');ell(x+5,159,18,11,'#4aa66d')}
+  }
+  function drawForestLayers(cam){
+    ctx.save();ctx.globalAlpha=.30;for(let i=-1;i<14;i++){const x=i*28-(cam*.16)%28;rr(x,55,7,105,3,'#183c3c');ell(x+3,60,20,34,'#235a4c')}ctx.restore();
+    for(let i=-1;i<13;i++){const x=i*34-(cam*.34)%34;rr(x,105,6,63,3,'#244937');ell(x+3,111,18,24,'#2e7252');ell(x-5,118,12,18,'#3b8660')}
+    ctx.save();ctx.globalAlpha=.18;ctx.fillStyle='#d8fff0';ctx.fillRect(0,140,W,18);ctx.restore();
+  }
+  function drawCliffLayers(cam){
+    for(let i=0;i<7;i++)cloud(20+i*55-(cam*.12)%385,24+(i%2)*26,.9,.8);
+    for(let i=-1;i<8;i++){const x=i*58-(cam*.21)%58;ctx.fillStyle='#7193a4';ctx.beginPath();ctx.moveTo(x,158);ctx.lineTo(x+29,92);ctx.lineTo(x+58,158);ctx.closePath();ctx.fill();ctx.fillStyle='#b3ccd2';ctx.beginPath();ctx.moveTo(x+20,112);ctx.lineTo(x+29,92);ctx.lineTo(x+38,112);ctx.closePath();ctx.fill()}
+    for(let i=-1;i<9;i++)cloud(i*44-(cam*.4)%44,151,1.1,.58);
+  }
+  function drawBossBackdrop(cam){
+    for(let i=-1;i<10;i++){const x=i*32-(cam*.2)%32;rr(x,112,24,52,3,linear(x,112,x+24,164,'#31364e','#1c2135'));rr(x+5,99,14,16,2,'#3a405b')}
+    ctx.save();ctx.globalAlpha=.45;for(let i=0;i<5;i++)ell(30+i*58,42+(i%2)*18,24,10,'#b66467');ctx.restore();
+  }
+
+  function drawWorld(){
+    for(const p of platforms)drawPlatform(p);for(const p of movingPlatforms)drawMovingPlatform(p);for(const b of boxes)if(!b.broken)drawBox(b);drawGrass();
+    for(const c of carrots)if(!c.taken)drawCarrot(c);for(const s of stars)if(!s.taken)drawStar(s);for(const c of checkpoints)drawCheckpoint(c);
+    for(const e of enemies)if(e.alive)drawEnemy(e);if(boss&&!boss.dead)drawBoss(boss);drawGoal();drawParticles();drawPopups();drawHero(player,HEROES[heroIndex]);
+  }
+  function drawPlatform(p){
+    if(p.type==='ground'){
+      ctx.fillStyle=linear(p.x,p.y,p.x,p.y+p.h,'#8a5228','#4a2b1e','#241b18');ctx.fillRect(p.x,p.y,p.w,p.h);
+      ctx.fillStyle=linear(p.x,p.y,p.x,p.y+8,'#aee95f','#4f9b3e');ctx.fillRect(p.x,p.y,p.w,8);ctx.fillStyle='rgba(255,255,255,.42)';ctx.fillRect(p.x,p.y,p.w,1.3);
+      for(let x=p.x+7;x<p.x+p.w;x+=18){ell(x,p.y+19,3,2,'rgba(255,191,98,.28)');rr(x+5,p.y+28,8,3,1,'rgba(43,24,18,.28)')}
+    }else{
+      rr(p.x,p.y,p.w,p.h,3,linear(p.x,p.y,p.x,p.y+p.h,'#f0ca67','#a8662e','#5a3422'),'#4b3426',.8);ctx.fillStyle='rgba(255,255,255,.48)';rr(p.x+2,p.y+1,p.w-4,2,1,'rgba(255,255,255,.42)');
+      for(let x=p.x+10;x<p.x+p.w-6;x+=16)line(x,p.y+4,x,p.y+p.h-2,'rgba(93,47,24,.48)',1);
+    }
+  }
+  function drawMovingPlatform(p){rr(p.x,p.y,p.w,p.h,3,linear(p.x,p.y,p.x,p.y+p.h,'#d9e478','#6e9b43','#41542d'),'#31402a',.7);rr(p.x+3,p.y+1,p.w-6,1.5,1,'rgba(255,255,255,.55)')}
+  function drawGrass(){for(let x=0;x<LEVEL_W;x+=19)if(groundUnder(x+4)){line(x+2,GROUND_Y,x+5,GROUND_Y-6,'#2b873e',1.2);line(x+8,GROUND_Y,x+8,GROUND_Y-8,'#45b94e',1.1);line(x+14,GROUND_Y,x+12,GROUND_Y-5,'#237638',1.2)}}
+  function drawBox(b){ctx.sav
