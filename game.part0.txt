@@ -1,0 +1,115 @@
+(() => {
+  'use strict';
+
+  // High-resolution canvas with a compact logical coordinate system.
+  // This keeps the retro proportions while making text, curves and 3D-style shading crisp.
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const SCALE = 3;
+  const W = 256;
+  const H = 216;
+  const GROUND_Y = 176;
+
+  const ui = {
+    hud: document.getElementById('hud'),
+    level: document.getElementById('hud-level'),
+    hero: document.getElementById('hud-hero'),
+    lives: document.getElementById('hud-lives'),
+    carrots: document.getElementById('hud-carrots'),
+    score: document.getElementById('hud-score'),
+    time: document.getElementById('hud-time'),
+    panel: document.getElementById('screen-panel'),
+    eyebrow: document.getElementById('screen-eyebrow'),
+    title: document.getElementById('screen-title'),
+    subtitle: document.getElementById('screen-subtitle'),
+    copy: document.getElementById('screen-copy'),
+    action: document.getElementById('screen-action'),
+    hint: document.getElementById('screen-hint'),
+  };
+
+  const keys = new Set();
+  const touch = { left: false, right: false, jump: false };
+  let jumpLatch = false;
+  let state = 'menu'; // menu | character | map | play | paused | levelclear | gameover | bosswin
+  let currentLevel = 0;
+  let selectedLevel = 0;
+  let heroIndex = 0;
+  let unlockedLevel = loadProgress();
+  let score = 0;
+  let scoreAtLevelStart = 0;
+  let lives = 3;
+  let levelTime = 0;
+  let collected = 0;
+  let totalCarrots = 0;
+  let starCount = 0;
+  let invuln = 0;
+  let combo = 0;
+  let comboTimer = 0;
+  let cameraX = 0;
+  let LEVEL_W = 2200;
+  let player = null;
+  let boss = null;
+  let particles = [];
+  let popups = [];
+  let boxes = [];
+  let carrots = [];
+  let stars = [];
+  let enemies = [];
+  let checkpoints = [];
+  let movingPlatforms = [];
+  let platforms = [];
+  let cfg = null;
+  let checkpointX = 34;
+  let checkpointY = 130;
+  let last = performance.now();
+
+  const HEROES = [
+    { id:'spark', name:'ИСКРА', species:'Кролик', ability:'Высокий прыжок', speed:108, jump:226, air:390, color1:'#f6f4ef', color2:'#c8cbd3', accent:'#4f8ef2', accent2:'#1e5cc5', ear:'#f08aa0', shoe:'#ef594b', doubleJump:false },
+    { id:'ginger', name:'РЫЖИК', species:'Лис', ability:'Самый быстрый', speed:128, jump:207, air:420, color1:'#ffad42', color2:'#d96221', accent:'#35a66f', accent2:'#17784c', ear:'#5a2c21', shoe:'#4b3c35', doubleJump:false },
+    { id:'shade', name:'ТЕНЬ', species:'Енот', ability:'Двойной прыжок', speed:104, jump:202, air:400, color1:'#aeb7c0', color2:'#5a6672', accent:'#9b62df', accent2:'#6733ad', ear:'#333a42', shoe:'#34363b', doubleJump:true },
+  ];
+
+  const LEVELS = [
+    {
+      name:'СОЛНЕЧНЫЙ ЛУГ', short:'ЛУГ', theme:'meadow', width:2200,
+      start:[34,130],
+      ground:[[0,520],[575,955],[1015,1455],[1515,2200]],
+      ledges:[[150,126,76],[330,105,72],[640,120,88],[820,92,84],[1100,120,88],[1290,94,72],[1620,116,92],[1845,92,72],[2020,122,88]],
+      boxes:[[286,160],[302,160],[302,144],[735,160],[751,160],[767,160],[1220,160],[1236,160],[1236,144],[1740,160],[1756,160],[2070,160]],
+      carrots:[[90,151],[122,151],[174,108],[204,108],[266,151],[350,86],[392,86],[620,151],[666,101],[706,101],[846,71],[884,71],[1050,151],[1130,102],[1320,75],[1352,75],[1560,151],[1650,98],[1690,98],[1880,72],[2045,104],[2100,151]],
+      stars:[[430,82],[1320,58],[1880,56]],
+      enemies:[['beetle',450,156,410,500],['frog',690,100,640,748],['bee',870,67,815,935],['beetle',1160,156,1060,1370],['frog',1660,96,1610,1715],['bee',1900,60,1830,1980],['beetle',2110,156,2040,2170]],
+      checkpoints:[[1010,140],[1510,140]],
+      movers:[{x:530,y:135,w:38,h:8,min:520,max:575,v:24,axis:'x',dir:1},{x:1465,y:126,w:38,h:8,min:1455,max:1515,v:20,axis:'x',dir:1}],
+    },
+    {
+      name:'ТЕНЕВОЙ ЛЕС', short:'ЛЕС', theme:'forest', width:2500,
+      start:[34,130],
+      ground:[[0,420],[480,820],[885,1260],[1325,1735],[1810,2190],[2260,2500]],
+      ledges:[[125,118,82],[300,90,66],[525,122,74],[690,88,82],[935,108,86],[1120,78,82],[1380,120,88],[1555,92,70],[1880,112,92],[2060,80,82],[2315,112,90]],
+      boxes:[[245,160],[261,160],[277,160],[610,160],[626,160],[626,144],[1015,160],[1031,160],[1450,160],[1466,160],[1482,160],[1960,160],[1976,160],[2320,160],[2336,160]],
+      carrots:[[75,151],[155,98],[188,98],[312,68],[350,151],[515,151],[550,102],[718,68],[748,68],[920,151],[960,88],[1145,58],[1175,58],[1360,151],[1410,100],[1578,72],[1660,151],[1850,151],[1905,92],[2085,60],[2120,60],[2300,151],[2350,92],[2420,151]],
+      stars:[[742,54],[1160,46],[2092,48]],
+      enemies:[['frog',345,138,300,390],['bee',560,75,500,650],['beetle',760,156,680,810],['beetle',1000,156,910,1210],['bee',1190,54,1120,1260],['frog',1430,100,1360,1510],['beetle',1680,156,1580,1725],['bee',1930,70,1860,2110],['frog',2350,92,2300,2430]],
+      checkpoints:[[885,140],[1810,140]],
+      movers:[{x:430,y:132,w:36,h:8,min:420,max:480,v:20,axis:'x',dir:1},{x:1280,y:118,w:38,h:8,min:1260,max:1325,v:22,axis:'x',dir:1},{x:2205,y:118,w:38,h:8,min:2190,max:2260,v:25,axis:'x',dir:1}],
+    },
+    {
+      name:'ОБЛАЧНЫЕ СКАЛЫ', short:'СКАЛЫ', theme:'cliffs', width:2650,
+      start:[34,130],
+      ground:[[0,350],[450,735],[835,1115],[1220,1495],[1600,1885],[1995,2280],[2380,2650]],
+      ledges:[[120,122,76],[255,90,62],[500,108,82],[655,76,70],[890,120,76],[1035,86,66],[1270,110,82],[1420,76,66],[1650,120,80],[1800,84,70],[2040,112,80],[2200,76,70],[2430,112,82]],
+      boxes:[[220,160],[236,160],[585,160],[601,160],[601,144],[950,160],[966,160],[1350,160],[1366,160],[1710,160],[1726,160],[2110,160],[2126,160],[2460,160]],
+      carrots:[[74,151],[144,102],[175,102],[270,70],[315,151],[485,151],[530,88],[675,56],[705,56],[870,151],[910,100],[1050,66],[1080,66],[1250,151],[1300,90],[1435,56],[1470,56],[1630,151],[1680,100],[1818,64],[1850,64],[2020,151],[2060,92],[2218,56],[2250,56],[2410,151],[2460,92],[2570,151]],
+      stars:[[690,44],[1440,44],[2220,44]],
+      enemies:[['bee',290,62,230,340],['frog',550,88,500,630],['beetle',700,156,620,725],['bee',990,65,900,1090],['frog',1320,90,1260,1410],['bee',1480,58,1400,1570],['beetle',1810,156,1680,1870],['bee',2150,58,2050,2260],['frog',2480,92,2420,2560]],
+      checkpoints:[[835,140],[1600,140]],
+      movers:[{x:366,y:128,w:38,h:8,min:350,max:450,v:30,axis:'x',dir:1},{x:756,y:118,w:38,h:8,min:735,max:835,v:28,axis:'x',dir:1},{x:1142,y:120,w:38,h:8,min:1115,max:1220,v:27,axis:'x',dir:1},{x:1518,y:120,w:38,h:8,min:1495,max:1600,v:30,axis:'x',dir:1},{x:1905,y:116,w:38,h:8,min:1885,max:1995,v:29,axis:'x',dir:1},{x:2300,y:116,w:38,h:8,min:2280,max:2380,v:30,axis:'x',dir:1}],
+    },
+    {
+      name:'КРЕПОСТЬ КРОТА', short:'БОСС', theme:'boss', width:900,
+      start:[55,130],
+      ground:[[0,900]],
+      ledges:[[170,120,88],[330,92,80],[510,120,88]],
+      boxes:[[250,160],[266,160],[430,160],[446,160],[610,160]],
+      carrots:[[110,151],[200,100],[360,72],[540,10
