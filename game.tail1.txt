@@ -1,0 +1,25 @@
+(!c.active&&Math.abs(player.x-c.x)<20){checkpoints.forEach(q=>q.active=false);c.active=true;checkpointX=c.x+10;checkpointY=130;score+=150;burst(c.x+6,c.y-10,'#68efff',12);audio.sfx('checkpoint');toast('ЧЕКПОИНТ','#baf7ff')}
+  }
+  function updateBoss(dt){
+    if(!boss||boss.dead)return;boss.flash=Math.max(0,boss.flash-dt);boss.timer-=dt;
+    if(boss.mode==='idle'&&boss.timer<=0){boss.dir=player.x<boss.x?-1:1;if(Math.random()<.52){boss.mode='charge';boss.timer=1.15;boss.vx=boss.dir*82}else{boss.mode='jump';boss.timer=1.25;boss.vy=-205;boss.vx=boss.dir*48;boss.onGround=false}}
+    if(boss.mode==='charge'){boss.x+=boss.vx*dt;if(boss.x<590){boss.x=590;boss.dir=1;boss.vx=Math.abs(boss.vx)}if(boss.x>835){boss.x=835;boss.dir=-1;boss.vx=-Math.abs(boss.vx)}if(boss.timer<=0){boss.mode='idle';boss.timer=.8;boss.vx=0}}
+    else if(boss.mode==='jump'){boss.vy+=520*dt;boss.x+=boss.vx*dt;boss.y+=boss.vy*dt;if(boss.y+boss.h>=GROUND_Y){boss.y=GROUND_Y-boss.h;boss.vy=0;boss.vx=0;boss.onGround=true;boss.mode='idle';boss.timer=.75;dustBurst(boss.x+boss.w/2,GROUND_Y,0,18);shake=.14}}
+    const bh={x:boss.x,y:boss.y,w:boss.w,h:boss.h};if(aabb(player,bh)&&boss.flash<=0){const stomp=player.vy>40&&player.y+player.h-5<boss.y+10;if(stomp){boss.hp--;boss.flash=.6;player.vy=-185;score+=800;burst(boss.x+boss.w/2,boss.y+8,'#ffce66',18);sparkleBurst(boss.x+boss.w/2,boss.y+6,'#fff',8);audio.sfx('bossHit');shake=.15;toast(`БОСС: ${boss.hp}/${boss.maxHp}`,'#ffe39a');if(boss.hp<=0){boss.dead=true;boss.vx=0;score+=3000;setTimeout(()=>{if(state==='play'){unlockedLevel=3;saveProgress();audio.sfx('win');setState('bosswin')}},900)}}else if(invuln<=0)damage(false)}
+  }
+  function damage(fell){
+    if(state!=='play')return;lives--;combo=0;audio.sfx('hit');shake=.16;
+    if(lives<=0){score=scoreAtLevelStart;setState('gameover');return}
+    player.x=checkpointX;player.y=checkpointY;player.vx=0;player.vy=0;invuln=1.8;cameraX=Math.max(0,checkpointX-W*.35);burst(player.x+6,player.y+10,'#ff6b6b',12)
+  }
+  function completeLevel(){
+    if(state!=='play')return;score+=1200+Math.max(0,600-Math.floor(levelTime)*4);unlockedLevel=Math.max(unlockedLevel,Math.min(3,currentLevel+1));saveProgress();audio.sfx('win');setState('levelclear')
+  }
+
+  // ---------- FX ----------
+  let shake=0;
+  function burst(x,y,color,n){for(let i=0;i<n;i++)particles.push({x,y,vx:(Math.random()-.5)*88,vy:-25-Math.random()*100,t:.45+Math.random()*.3,color,size:1.2+Math.random()*1.8,g:235,kind:'orb'})}
+  function dustBurst(x,y,push=0,n=7){for(let i=0;i<n;i++)particles.push({x:x+(Math.random()-.5)*10,y:y-Math.random()*2,vx:push+(Math.random()-.5)*50,vy:-8-Math.random()*34,t:.25+Math.random()*.22,color:['#e4c987','#bd9963','#8c6d47'][i%3],size:1.5+Math.random()*2.5,g:105,kind:'dust'})}
+  function sparkleBurst(x,y,color,n=6){for(let i=0;i<n;i++)particles.push({x,y,vx:(Math.random()-.5)*58,vy:-20-Math.random()*64,t:.3+Math.random()*.28,color,size:1,g:55,kind:'spark'})}
+  function popup(x,y,text){popups.push({x,y,text,t:.82})}
+  func
