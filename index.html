@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="theme-color" content="#1b2434" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Искра — тестовая версия</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Yandex Games SDK is loaded only inside Yandex Games -->
+</head>
+<body>
+  <main id="game-shell">
+    <canvas id="game" width="768" height="648" aria-label="Платформер Искра"></canvas>
+
+    <section id="hud" class="hidden" aria-label="Игровой интерфейс">
+      <div class="hud-row">
+        <div class="hud-chip hud-level"><span class="hud-kicker">УРОВЕНЬ</span><strong id="hud-level">1 · ЛУГ</strong></div>
+        <div class="hud-chip"><span class="hud-kicker">ГЕРОЙ</span><strong id="hud-hero">ИСКРА</strong></div>
+        <div class="hud-chip"><span class="hud-kicker">ЖИЗНИ</span><strong id="hud-lives">❤ 3</strong></div>
+      </div>
+      <div class="hud-row hud-row-right">
+        <div class="hud-chip"><span class="hud-kicker">МОРКОВКИ</span><strong id="hud-carrots">0</strong></div>
+        <div class="hud-chip"><span class="hud-kicker">СЧЁТ</span><strong id="hud-score">000000</strong></div>
+        <div class="hud-chip"><span class="hud-kicker">ВРЕМЯ</span><strong id="hud-time">000</strong></div>
+      </div>
+    </section>
+
+    <section id="screen-panel" class="screen-panel">
+      <div class="screen-card">
+        <div id="screen-eyebrow" class="screen-eyebrow">РЕТРО-ПЛАТФОРМЕР</div>
+        <h1 id="screen-title">ИСКРА</h1>
+        <p id="screen-subtitle">Большое приключение</p>
+        <div id="screen-copy" class="screen-copy"></div>
+        <button id="screen-action" type="button">ИГРАТЬ</button>
+        <div id="screen-hint" class="screen-hint">ENTER / ПРОБЕЛ</div>
+      </div>
+    </section>
+
+    <div id="desktop-help" class="desktop-help">← → / A D — движение · SPACE / Z — прыжок · P — пауза · M — музыка</div>
+
+    <div id="touch-controls" aria-label="Экранное управление">
+      <div class="dpad">
+        <button id="left" class="control-btn" aria-label="Влево">◀</button>
+        <button id="right" class="control-btn" aria-label="Вправо">▶</button>
+      </div>
+      <button id="jump" class="control-btn jump" aria-label="Прыжок или подтверждение">A</button>
+    </div>
+  </main>
+  <script src="loader.js"></script>
+</body>
+</html>
